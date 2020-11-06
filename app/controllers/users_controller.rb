@@ -1,5 +1,9 @@
 class UsersController < ApplicationController
   before_action :set_user, only: [:show, :edit, :update, :destroy]
+  before_action :require_user, only: [:update, :edit]
+  before_action :require_same_user, only: [:update, :edit, :destroy]
+  
+
 
   # GET /users
   # GET /users.json
@@ -10,7 +14,6 @@ class UsersController < ApplicationController
   # GET /users/1
   # GET /users/1.json
   def show
-    @user = User.find(params[:id])
     @articles = @user.articles.paginate(page: params[:page], per_page: 5)
   end
 
@@ -21,7 +24,6 @@ class UsersController < ApplicationController
 
   # GET /users/1/edit
   def edit
-    @user = User.find(params[:id])
   end
 
   # POST /users
@@ -30,6 +32,7 @@ class UsersController < ApplicationController
     
     @user = User.new(user_params)
     if @user.save
+      session[:user_id] = @user.id
       flash[:notice] = "Welcome to the Alpha Blog #{@user.username}, you have successfully signed up" 
       redirect_to articles_path
       # format.html { redirect_to @user, notice: 'User was successfully created.' }
@@ -44,7 +47,6 @@ class UsersController < ApplicationController
   # PATCH/PUT /users/1
   # PATCH/PUT /users/1.json
   def update
-    @user = User.find(params[:id])
     if @user.update(user_params)
       flash[:notice] = "Your account information was updated successfully."
       redirect_to @user
@@ -57,10 +59,9 @@ class UsersController < ApplicationController
   # DELETE /users/1.json
   def destroy
     @user.destroy
-    respond_to do |format|
-      format.html { redirect_to users_url, notice: 'User was successfully destroyed.' }
-      format.json { head :no_content }
-    end
+    session[:user_id]=nil if @user == current_user
+    flash[:notice] = "Account and all associated articles successfully deleted."
+    redirect_to articles_path
   end
 
   private
@@ -72,5 +73,13 @@ class UsersController < ApplicationController
     # Only allow a list of trusted parameters through.
     def user_params
       params.require(:user).permit(:username, :email, :password)
+    end
+    
+    def require_same_user
+        if current_user != @user && !current_user.admin?
+            flash[:alert] = "You can only edit or delete your own account."
+            redirect_to @user
+        end
+        
     end
 end
